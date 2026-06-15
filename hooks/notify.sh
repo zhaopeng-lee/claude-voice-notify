@@ -18,6 +18,7 @@ DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 
 SOUNDS_ROOT="$DIR/sounds"
 VOICE_FILE="$DIR/current-voice"
+VOICES_JSON="$DIR/voices.json"
 
 # Per-state macOS system sound (fallback / "system" voice).
 sys_sound() {
@@ -64,13 +65,19 @@ if [ "$state" = "auto" ]; then
   esac
 fi
 
+# Notification text. Subtitle = the voice's display name (from voices.json) when available,
+# so the popup is themed per voice. Edit the titles here for fully custom per-voice wording.
+SUBTITLE="Claude Code"
+if [ "$voice" != "system" ] && [ -f "$VOICES_JSON" ] && command -v jq >/dev/null 2>&1; then
+  vn=$(jq -r --arg k "$voice" '.[$k].name // empty' "$VOICES_JSON" 2>/dev/null)
+  [ -n "$vn" ] && SUBTITLE="$vn"
+fi
 case "$state" in
-  question) title="Needs your input"; sub="Claude is waiting" ;;
-  done)     title="Task complete";    sub="Claude Code" ;;
-  error)    title="Something failed";  sub="Claude Code" ;;
-  session)  title="Session started";   sub="Claude Code" ;;
-  subagent) title="Subtask done";      sub="Claude Code" ;;
-  *)        title="Claude Code";       sub="" ;;
+  question) TITLE="Needs your input"; MSG="Claude is waiting" ;;
+  done)     TITLE="Task complete";    MSG="Done" ;;
+  error)    TITLE="Something failed";  MSG="Take a look" ;;
+  session)  TITLE="Session started";   MSG="Ready" ;;
+  *)        TITLE="Claude Code";       MSG="Claude Code" ;;
 esac
 
 # Pick a voice-pack clip if available, else fall back to a system sound.
@@ -86,7 +93,15 @@ else
   afplay "$(sys_sound "$state")" >/dev/null 2>&1 &
 fi
 
-osascript -e "display notification \"$sub\" with title \"$title\"" >/dev/null 2>&1
+# Popup: if terminal-notifier is installed and the voice has sounds/<voice>/icon.png,
+# show that avatar; otherwise a plain system notification.
+ICON="$SOUNDS_ROOT/$voice/icon.png"
+if command -v terminal-notifier >/dev/null 2>&1 && [ -f "$ICON" ]; then
+  terminal-notifier -title "$TITLE" -subtitle "$SUBTITLE" -message "$MSG" \
+    -contentImage "$ICON" -appIcon "$ICON" >/dev/null 2>&1
+else
+  osascript -e "display notification \"$MSG\" with title \"$TITLE\" subtitle \"$SUBTITLE\"" >/dev/null 2>&1
+fi
 
 # Escalating reminder: only when Claude is awaiting your reply (a question turn).
 # Task-complete turns and new sessions clear any pending reminder instead.

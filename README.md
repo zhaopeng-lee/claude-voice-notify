@@ -109,6 +109,23 @@ With the `system` voice (or a pack without `remind` clips), the nudge is a plain
 Add `remind` lines to a voice in `voices.json` (see `voices.example.json`) for spoken nudges.
 Tune the schedule with `REMIND_DELAYS` (e.g. `REMIND_DELAYS="30 60 300 900"`).
 
+## Themed popups (text + optional avatar)
+
+The popup is themed per voice: its **subtitle** shows the voice's display `name` from
+`voices.json`. For fully custom per-voice wording, edit the `case` block in `notify.sh`.
+
+To show a **character avatar** in the banner:
+
+1. `brew install terminal-notifier`
+2. Drop an image at `~/.claude/voice-notify/sounds/<voice>/icon.png`.
+
+When both are present, notifications use it automatically (else they fall back to the plain
+system popup). Notes: no image is bundled — bring your own and mind copyright. On modern macOS
+the custom icon may only show as the right-side thumbnail (the left app-icon is often forced to
+the posting app), and `terminal-notifier` needs notification permission the first time. If
+banners stop appearing after adding an icon, grant it permission in System Settings → Notifications,
+or remove `icon.png` to revert.
+
 ## Add a spoken voice pack (optional)
 
 1. Create your config from the template:
