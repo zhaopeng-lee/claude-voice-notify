@@ -49,8 +49,10 @@ if [ "$state" = "auto" ]; then
   tp=$(printf '%s' "$input" | jq -r '.transcript_path // ""' 2>/dev/null)
   last=""
   if [ -n "$tp" ] && [ -f "$tp" ]; then
-    last=$(tail -r "$tp" 2>/dev/null \
-      | jq -rc 'select(.type=="assistant") | select(.message.content) | [.message.content[]|select(.type=="text")|.text]|add // empty' 2>/dev/null \
+    # Only scan the tail of the transcript (the final assistant message is at the end).
+    # join text blocks + collapse whitespace so a multi-line message stays one line.
+    last=$(tail -n 400 "$tp" 2>/dev/null | tail -r 2>/dev/null \
+      | jq -rc 'select(.type=="assistant") | [.message.content[]? | select(.type=="text") | .text] | join(" ") | gsub("\\s+";" ")' 2>/dev/null \
       | grep -m1 .)
   fi
   if printf '%s' "$last" | tail -c 240 | grep -q '[?？]'; then

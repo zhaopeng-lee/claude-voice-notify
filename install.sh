@@ -23,10 +23,12 @@ mkdir -p "$INSTALL_DIR" "$COMMANDS_DIR"
 cp "$REPO_DIR/hooks/notify.sh" "$REPO_DIR/hooks/set-voice.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/generate-sounds.mjs" "$REPO_DIR/voices.example.json" "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/notify.sh" "$INSTALL_DIR/set-voice.sh"
-cp "$REPO_DIR/commands/voice.md" "$COMMANDS_DIR/voice.md"
 [ -f "$INSTALL_DIR/current-voice" ] || printf 'system\n' > "$INSTALL_DIR/current-voice"
 
-# 3. `voice` command on PATH (first writable dir already on PATH)
+# Install the /voice command with an absolute path (so it works regardless of PATH).
+sed "s#__SETVOICE__#bash ${INSTALL_DIR}/set-voice.sh#g" "$REPO_DIR/commands/voice.md" > "$COMMANDS_DIR/voice.md"
+
+# 3. `voice` command on PATH (first writable dir already on PATH) — for the !voice shortcut
 link_dir=""
 for d in "$HOME/bin" "$HOME/.local/bin" /usr/local/bin /opt/homebrew/bin; do
   case ":$PATH:" in *":$d:"*) : ;; *) continue ;; esac
@@ -34,15 +36,13 @@ for d in "$HOME/bin" "$HOME/.local/bin" /usr/local/bin /opt/homebrew/bin; do
 done
 if [ -z "$link_dir" ]; then
   link_dir="$HOME/.local/bin"; mkdir -p "$link_dir"
-  say "Note: $link_dir is not on your PATH yet. Add it:  export PATH=\"$link_dir:\$PATH\""
+  say "Note: $link_dir is not on your PATH yet. Add it for the !voice shortcut:  export PATH=\"$link_dir:\$PATH\""
 fi
 ln -sf "$INSTALL_DIR/set-voice.sh" "$link_dir/voice"
 
-# 4. Merge hooks into settings.json (backup, idempotent, preserves other hooks)
+# 4. Merge hooks into settings.json (idempotent; backs up only when it actually changes)
 [ -f "$SETTINGS" ] || printf '{}\n' > "$SETTINGS"
-cp "$SETTINGS" "$SETTINGS.bak.$(date +%Y%m%d%H%M%S)"
-tmp="$(mktemp)"
-jq --arg n "$NOTIFY" '
+new="$(jq --arg n "$NOTIFY" '
   def ensure($event; $arg):
     .hooks[$event] = (
       ((((.hooks // {})[$event]) // [])
@@ -56,8 +56,15 @@ jq --arg n "$NOTIFY" '
   | ensure("Notification"; "question")
   | ensure("Stop"; "auto")
   | ensure("StopFailure"; "error")
-' "$SETTINGS" > "$tmp"
-mv "$tmp" "$SETTINGS"
+' "$SETTINGS")"
+
+if [ "$new" != "$(cat "$SETTINGS")" ]; then
+  cp "$SETTINGS" "$SETTINGS.bak.$(date +%Y%m%d%H%M%S)"
+  printf '%s\n' "$new" > "$SETTINGS"
+  say "Merged hooks into $SETTINGS (backup saved alongside it)."
+else
+  say "Hooks already up to date in $SETTINGS (no change)."
+fi
 
 say ""
 say "claude-voice-notify installed."

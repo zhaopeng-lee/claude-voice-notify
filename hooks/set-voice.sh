@@ -30,14 +30,21 @@ friendly() {
 
 current="system"
 [ -f "$VOICE_FILE" ] && current=$(tr -d '[:space:]' < "$VOICE_FILE")
+[ -z "$current" ] && current="system"
 
 want=$(printf '%s' "${1:-}" | tr -d '[:space:]')
 
-valid=0
-[ "$want" = "system" ] && valid=1
-[ -n "$want" ] && [ -d "$SOUNDS_ROOT/$want" ] && valid=1
+# Defensive id charset gate.
+safe=1
+case "$want" in ''|*[!A-Za-z0-9_-]*) safe=0 ;; esac
 
-if [ -z "$want" ] || [ "$valid" = 0 ]; then
+valid=0
+if [ "$safe" = 1 ]; then
+  [ "$want" = "system" ] && valid=1
+  [ -d "$SOUNDS_ROOT/$want" ] && valid=1
+fi
+
+if [ "$valid" = 0 ]; then
   [ -n "$want" ] && echo "Unknown voice: ${want}"
   echo "Current: ${current} ($(friendly "$current"))"
   echo "Available:"
@@ -58,11 +65,15 @@ fi
 echo "$want" > "$VOICE_FILE"
 echo "Switched voice -> ${want} ($(friendly "$want"))"
 
-# Play a sample.
+# Play a sample (first available state for this voice).
 if [ "$want" = "system" ]; then
   afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 &
 else
-  clips=("$SOUNDS_ROOT/$want/done"/*.mp3)
-  [ -e "${clips[0]}" ] && afplay "${clips[RANDOM % ${#clips[@]}]}" >/dev/null 2>&1 &
+  sample=""
+  for st in done session question error subagent; do
+    c=("$SOUNDS_ROOT/$want/$st"/*.mp3)
+    if [ -e "${c[0]}" ]; then sample="${c[RANDOM % ${#c[@]}]}"; break; fi
+  done
+  [ -n "$sample" ] && afplay "$sample" >/dev/null 2>&1 &
 fi
 exit 0

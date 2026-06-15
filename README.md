@@ -10,6 +10,22 @@ starts — using built-in macOS system sounds out of the box, or your own AI-gen
 
 ---
 
+## Quick install (paste into Claude Code)
+
+Open Claude Code on your Mac and paste this prompt — it will clone, install, and activate:
+
+```text
+Install claude-voice-notify on my Mac. Steps:
+1. git clone https://github.com/zhaopeng-lee/claude-voice-notify into a temp folder.
+2. cd into it and run ./install.sh (if `jq` is missing, install it first with: brew install jq).
+3. After it finishes, tell me to open /hooks once (or restart) to activate the hooks.
+Then summarize in one or two lines how to switch voices with !voice <id> and how to add a Fish Audio voice pack.
+```
+
+Prefer to do it yourself? See **Manual install** below.
+
+---
+
 ## What it sounds like
 
 | Event | Claude Code hook | Default sound |
@@ -32,10 +48,14 @@ With a voice pack installed, each event plays a random spoken line in your chose
 
 - macOS (uses `afplay` + `osascript`)
 - [`jq`](https://jqlang.github.io/jq/) — `brew install jq`
-- Node.js — **only** if you want to generate spoken voice packs
+- Node.js **18+** — **only** if you want to generate spoken voice packs (uses global `fetch`)
 - A [Fish Audio](https://fish.audio) API key — **only** for voice packs
 
-## Install
+> First time a notification pops, macOS may ask to allow notifications for your terminal app
+> (Terminal / iTerm / Ghostty / VS Code …). Allow it, or you'll only hear the sound with no
+> banner. The sound works regardless.
+
+## Manual install
 
 ```bash
 git clone https://github.com/zhaopeng-lee/claude-voice-notify.git
@@ -47,7 +67,8 @@ Then open `/hooks` once in Claude Code (or restart) so the new hooks load.
 
 The installer copies scripts to `~/.claude/voice-notify/`, installs a `/voice` slash command,
 puts a `voice` command on your `PATH`, and merges 4 hooks into `~/.claude/settings.json`
-(it backs the file up first and preserves any hooks you already have).
+(it backs the file up first, only when something actually changes, and preserves any hooks
+you already have).
 
 ## Switching voices
 
@@ -81,8 +102,8 @@ There's also a `/voice` slash command, but it runs as a normal turn (costs token
    voice <your-voice-id>
    ```
 
-`generate-sounds.mjs` is idempotent — it skips clips that already exist. Use `--force` to
-regenerate everything, or pass a single voice id to do just one.
+`generate-sounds.mjs` is idempotent — it skips clips that already exist (network calls have a
+timeout + retry). Use `--force` to regenerate everything, or pass a single voice id to do one.
 
 ### ⚠️ Voice / copyright responsibility
 
@@ -104,11 +125,11 @@ All behavior lives in `~/.claude/voice-notify/notify.sh` and the hook entries in
 ## Uninstall
 
 ```bash
-./uninstall.sh
+./uninstall.sh            # remove hooks/command/symlink; KEEP your voices.json + voice packs
+./uninstall.sh --purge    # also delete ~/.claude/voice-notify (everything)
 ```
 
-Removes the hooks (with a settings backup), the `/voice` command, the `voice` symlink, and
-`~/.claude/voice-notify/`.
+A settings.json backup is written before the hooks are removed.
 
 ## How it works
 
