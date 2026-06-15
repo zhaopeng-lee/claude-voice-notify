@@ -1,0 +1,13 @@
+# Generated audio (voice packs) — never commit
+sounds/
+
+# Local config that may contain your own voice model ids / private text
+voices.json
+
+# Secrets
+.env
+
+# Backups / OS cruft
+*.bak
+*.bak.*
+.DS_Store

@@ -1,0 +1,25 @@
+{
+  "_help": "Copy this file to voices.json (same folder), set reference_id to your own Fish Audio model id (the last path segment of https://fish.audio/m/<id>), edit the clip texts, then run: node generate-sounds.mjs. Keys starting with _ are ignored. IMPORTANT: do NOT clone copyrighted characters, brands, or real people's voices — you are responsible for the voice models and text you use.",
+  "example": {
+    "name": "Example Voice",
+    "reference_id": "REPLACE_WITH_YOUR_FISH_AUDIO_MODEL_ID",
+    "clips": {
+      "question": [
+        "Your input is needed.",
+        "I'm waiting for your decision."
+      ],
+      "done": [
+        "Task complete.",
+        "All done here."
+      ],
+      "error": [
+        "Something went wrong.",
+        "An error occurred. Please take a look."
+      ],
+      "session": [
+        "Session started.",
+        "Ready when you are."
+      ]
+    }
+  }
+}
