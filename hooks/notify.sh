@@ -56,11 +56,12 @@ if [ "$state" = "auto" ]; then
       | jq -rc 'select(.type=="assistant") | [.message.content[]? | select(.type=="text") | .text] | join(" ") | gsub("\\s+";" ")' 2>/dev/null \
       | grep -m1 .)
   fi
-  if printf '%s' "$last" | tail -c 240 | grep -q '[?？]'; then
-    state="question"
-  else
-    state="done"
-  fi
+  # Question only if the final message (trailing whitespace stripped) ends with ? / ？
+  last_trim="${last%"${last##*[![:space:]]}"}"
+  case "$last_trim" in
+    *'?'|*'？') state="question" ;;
+    *)          state="done" ;;
+  esac
 fi
 
 case "$state" in
@@ -87,10 +88,11 @@ fi
 
 osascript -e "display notification \"$sub\" with title \"$title\"" >/dev/null 2>&1
 
-# Escalating "still waiting" reminder: start it after a Stop, clear it on a new session.
-if [ "$orig" = "auto" ]; then
+# Escalating reminder: only when Claude is awaiting your reply (a question turn).
+# Task-complete turns and new sessions clear any pending reminder instead.
+if [ "$orig" = "auto" ] && [ "$state" = "question" ]; then
   bash "$DIR/remind.sh" start </dev/null >/dev/null 2>&1
-elif [ "$orig" = "session" ]; then
+elif [ "$orig" = "auto" ] || [ "$orig" = "session" ]; then
   bash "$DIR/remind.sh" stop </dev/null >/dev/null 2>&1
 fi
 exit 0

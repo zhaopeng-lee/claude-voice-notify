@@ -87,19 +87,17 @@ Inside Claude Code, prefix with `!` to switch **without spending a model turn / 
 There's also a `/voice` slash command, but it runs as a normal turn (costs tokens) — prefer
 `!voice` for quick switches.
 
-## Reminders (nudge until you respond)
+## Reminders (nudge until you reply)
 
-When Claude stops and you don't come back, it can **re-nudge you on an escalating schedule**:
-at **60s, 3min, 10min, and 30min**, then it gives up. Each nudge plays the voice's `remind`
-clips in order (clip 1 → 2 → 3 → 4), so the wording escalates instead of repeating.
+**Only when Claude is actually waiting on you.** If Claude's final message ends with a question
+(`?` / `？`), the turn is treated as "awaiting your reply" and the reminder kicks in. If the turn
+just finished a task (no reply needed), it chimes once and stays quiet — no nagging. While
+awaiting you, it re-nudges on an escalating schedule — **60s, 3min, 10min, 30min** — then gives
+up. Each nudge plays the voice's `remind` clips in order (1 → 2 → 3 → 4), so the wording escalates.
 
-It cancels itself two ways, **both free (no prompt, no tokens)**: the moment you type (the
-`UserPromptSubmit` hook), or when you're simply **present at the Mac** — at each checkpoint it
-checks macOS HID idle time, and if the keyboard/mouse was used within `REMIND_PRESENCE_IDLE`
-seconds (default 30) it treats you as back and stops. (Caveat: this detects input, not eyes —
-sitting still and only staring at the screen for >30s reads as "away".)
+It stops the moment you reply (the `UserPromptSubmit` hook) or a new session starts.
 
-It's **on by default**. Toggle it anytime (zero tokens):
+It's **on by default**. Toggle anytime (zero tokens):
 
 ```bash
 voice remind          # show status
@@ -109,8 +107,7 @@ voice remind on       # enable
 
 With the `system` voice (or a pack without `remind` clips), the nudge is a plain system ping.
 Add `remind` lines to a voice in `voices.json` (see `voices.example.json`) for spoken nudges.
-Tune the schedule with `REMIND_DELAYS` (e.g. `REMIND_DELAYS="30 60 300 900"`) and the
-presence sensitivity with `REMIND_PRESENCE_IDLE` (seconds; default 30).
+Tune the schedule with `REMIND_DELAYS` (e.g. `REMIND_DELAYS="30 60 300 900"`).
 
 ## Add a spoken voice pack (optional)
 
