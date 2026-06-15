@@ -26,6 +26,9 @@ FALLBACK="/System/Library/Sounds/Ping.aiff"
 # Seconds to wait before each reminder (cumulative = 60s, 3min, 10min, 30min).
 # Override for testing: REMIND_DELAYS="2 2 2 2"
 read -ra DELAYS <<< "${REMIND_DELAYS:-60 120 420 1200}"
+# Presence: if the keyboard/mouse was used within PRESENCE seconds, you're at the
+# machine (you came back / glanced) -> stop nagging. Zero tokens. Tune with REMIND_PRESENCE_IDLE.
+PRESENCE="${REMIND_PRESENCE_IDLE:-30}"
 
 kill_existing() {
   [ -f "$PIDFILE" ] || return 0
@@ -48,8 +51,11 @@ case "${1:-}" in
   __run)
     n=0
     for d in "${DELAYS[@]}"; do
-      sleep "$d" 2>/dev/null || exit 0
+      sleep "$d" 2>/dev/null || { rm -f "$PIDFILE"; exit 0; }
       n=$((n + 1))
+      # You're here -> don't nag: keyboard/mouse used within PRESENCE secs => acknowledged.
+      idle=$(ioreg -c IOHIDSystem 2>/dev/null | awk '/HIDIdleTime/{print int($NF/1000000000); exit}')
+      if [ -n "$idle" ] && [ "$idle" -lt "$PRESENCE" ]; then rm -f "$PIDFILE"; exit 0; fi
       voice="system"
       [ -f "$VOICE_FILE" ] && voice=$(tr -d '[:space:]' < "$VOICE_FILE")
       [ -z "$voice" ] && voice="system"
