@@ -20,6 +20,11 @@ SOUNDS_ROOT="$DIR/sounds"
 VOICE_FILE="$DIR/current-voice"
 VOICES_JSON="$DIR/voices.json"
 
+# Master mute: `voice off` silences everything (no sound, no popup, no reminder).
+NOTIFY_ENABLED="$DIR/notify-enabled"
+en="on"; [ -f "$NOTIFY_ENABLED" ] && en=$(tr -d '[:space:]' < "$NOTIFY_ENABLED")
+[ "$en" = "off" ] && exit 0
+
 # Per-state macOS system sound (fallback / "system" voice).
 sys_sound() {
   case "$1" in

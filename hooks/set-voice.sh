@@ -20,6 +20,7 @@ SOUNDS_ROOT="$DIR/sounds"
 VOICE_FILE="$DIR/current-voice"
 VOICES_JSON="$DIR/voices.json"
 ENABLED_FILE="$DIR/remind-enabled"
+NOTIFY_ENABLED="$DIR/notify-enabled"
 
 friendly() {
   [ "$1" = "system" ] && { echo "macOS system sounds"; return; }
@@ -34,6 +35,20 @@ remind_state() {
   e="on"; [ -f "$ENABLED_FILE" ] && e=$(tr -d '[:space:]' < "$ENABLED_FILE")
   [ "$e" = "off" ] && echo "off" || echo "on"
 }
+
+notify_state() {
+  e="on"; [ -f "$NOTIFY_ENABLED" ] && e=$(tr -d '[:space:]' < "$NOTIFY_ENABLED")
+  [ "$e" = "off" ] && echo "off" || echo "on"
+}
+
+# Sub-command: master mute (all notifications)
+case "${1:-}" in
+  off|mute)
+    echo "off" > "$NOTIFY_ENABLED"; bash "$DIR/remind.sh" stop 2>/dev/null
+    echo "Voice notifications: OFF  (voice on to re-enable)"; exit 0 ;;
+  on|unmute)
+    echo "on" > "$NOTIFY_ENABLED"; echo "Voice notifications: ON"; exit 0 ;;
+esac
 
 # Sub-command: reminder toggle
 if [ "${1:-}" = "remind" ]; then
@@ -76,6 +91,7 @@ if [ "$valid" = 0 ]; then
     done
   fi
   echo
+  echo "Notifications: $(notify_state)   (toggle: voice off | voice on)"
   echo "Reminders: $(remind_state)   (toggle: voice remind on|off)"
   echo "Usage: voice <id>    e.g.  voice system   (in Claude Code: !voice <id>)"
   exit 0
@@ -84,15 +100,17 @@ fi
 echo "$want" > "$VOICE_FILE"
 echo "Switched voice -> ${want} ($(friendly "$want"))"
 
-# Play a sample (first available state for this voice).
-if [ "$want" = "system" ]; then
-  afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 &
-else
-  sample=""
-  for st in done session question error remind subagent; do
-    c=("$SOUNDS_ROOT/$want/$st"/*.mp3)
-    if [ -e "${c[0]}" ]; then sample="${c[RANDOM % ${#c[@]}]}"; break; fi
-  done
-  [ -n "$sample" ] && afplay "$sample" >/dev/null 2>&1 &
+# Play a sample (first available state for this voice; silent when muted).
+if [ "$(notify_state)" = "on" ]; then
+  if [ "$want" = "system" ]; then
+    afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 &
+  else
+    sample=""
+    for st in done session question error remind subagent; do
+      c=("$SOUNDS_ROOT/$want/$st"/*.mp3)
+      if [ -e "${c[0]}" ]; then sample="${c[RANDOM % ${#c[@]}]}"; break; fi
+    done
+    [ -n "$sample" ] && afplay "$sample" >/dev/null 2>&1 &
+  fi
 fi
 exit 0
