@@ -24,13 +24,16 @@ if [ -f "$SETTINGS" ] && command -v jq >/dev/null 2>&1; then
       | if $arr == null then .
         else
           ($arr | map(select(
-            ([ (.hooks // [])[]?.command // empty ] | map(contains("voice-notify/notify.sh")) | any) | not
+            ([ (.hooks // [])[]?.command // empty ]
+              | map(contains("voice-notify/notify.sh") or contains("voice-notify/remind.sh"))
+              | any) | not
           ))) as $kept
           | if ($kept | length) == 0 then del(.hooks[$event]) else .hooks[$event] = $kept end
         end;
     if (.hooks == null) then .
     else
-      clean("SessionStart") | clean("Notification") | clean("Stop") | clean("StopFailure")
+      clean("SessionStart") | clean("Notification") | clean("Stop")
+      | clean("StopFailure") | clean("UserPromptSubmit")
       | if ((.hooks // {}) | length) == 0 then del(.hooks) else . end
     end
   ' "$SETTINGS" > "$tmp"
@@ -49,15 +52,18 @@ for d in "$HOME/bin" "$HOME/.local/bin" /usr/local/bin /opt/homebrew/bin; do
   fi
 done
 
-# 4. Program files (keep user data unless --purge)
+# 4. Stop any running reminder
+[ -x "$INSTALL_DIR/remind.sh" ] && bash "$INSTALL_DIR/remind.sh" stop 2>/dev/null || true
+
+# 5. Program files (keep user data unless --purge)
 if [ -d "$INSTALL_DIR" ]; then
   if [ "$PURGE" = 1 ]; then
     rm -rf "$INSTALL_DIR"
     say "Removed $INSTALL_DIR (including voices.json and generated voice packs)"
   else
-    rm -f "$INSTALL_DIR/notify.sh" "$INSTALL_DIR/set-voice.sh" \
+    rm -f "$INSTALL_DIR/notify.sh" "$INSTALL_DIR/set-voice.sh" "$INSTALL_DIR/remind.sh" \
           "$INSTALL_DIR/generate-sounds.mjs" "$INSTALL_DIR/voices.example.json" \
-          "$INSTALL_DIR/current-voice"
+          "$INSTALL_DIR/current-voice" "$INSTALL_DIR/remind-enabled" "$INSTALL_DIR/.remind.pid"
     if rmdir "$INSTALL_DIR" 2>/dev/null; then
       say "Removed $INSTALL_DIR"
     else

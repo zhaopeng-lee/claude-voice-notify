@@ -35,6 +35,7 @@ voice="system"
 [ -f "$VOICE_FILE" ] && voice=$(tr -d '[:space:]' < "$VOICE_FILE")
 
 state="${1:-done}"
+orig="$state"                # raw trigger (auto=Stop, session=SessionStart) — drives the reminder
 input=""
 [ ! -t 0 ] && input=$(cat)   # drain stdin (auto/session need it; others too, to avoid blocking)
 
@@ -85,4 +86,11 @@ else
 fi
 
 osascript -e "display notification \"$sub\" with title \"$title\"" >/dev/null 2>&1
+
+# Escalating "still waiting" reminder: start it after a Stop, clear it on a new session.
+if [ "$orig" = "auto" ]; then
+  bash "$DIR/remind.sh" start </dev/null >/dev/null 2>&1
+elif [ "$orig" = "session" ]; then
+  bash "$DIR/remind.sh" stop </dev/null >/dev/null 2>&1
+fi
 exit 0

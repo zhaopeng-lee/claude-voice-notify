@@ -10,6 +10,7 @@ INSTALL_DIR="$HOME/.claude/voice-notify"
 COMMANDS_DIR="$HOME/.claude/commands"
 SETTINGS="$HOME/.claude/settings.json"
 NOTIFY="$INSTALL_DIR/notify.sh"
+REMIND="$INSTALL_DIR/remind.sh"
 
 say() { printf '%s\n' "$*"; }
 
@@ -20,10 +21,11 @@ command -v node >/dev/null 2>&1 || say "Note: 'node' not found — only needed f
 
 # 2. Copy files
 mkdir -p "$INSTALL_DIR" "$COMMANDS_DIR"
-cp "$REPO_DIR/hooks/notify.sh" "$REPO_DIR/hooks/set-voice.sh" "$INSTALL_DIR/"
+cp "$REPO_DIR/hooks/notify.sh" "$REPO_DIR/hooks/set-voice.sh" "$REPO_DIR/hooks/remind.sh" "$INSTALL_DIR/"
 cp "$REPO_DIR/generate-sounds.mjs" "$REPO_DIR/voices.example.json" "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/notify.sh" "$INSTALL_DIR/set-voice.sh"
-[ -f "$INSTALL_DIR/current-voice" ] || printf 'system\n' > "$INSTALL_DIR/current-voice"
+chmod +x "$INSTALL_DIR/notify.sh" "$INSTALL_DIR/set-voice.sh" "$INSTALL_DIR/remind.sh"
+[ -f "$INSTALL_DIR/current-voice" ]   || printf 'system\n' > "$INSTALL_DIR/current-voice"
+[ -f "$INSTALL_DIR/remind-enabled" ]  || printf 'on\n'     > "$INSTALL_DIR/remind-enabled"
 
 # Install the /voice command with an absolute path (so it works regardless of PATH).
 sed "s#__SETVOICE__#bash ${INSTALL_DIR}/set-voice.sh#g" "$REPO_DIR/commands/voice.md" > "$COMMANDS_DIR/voice.md"
@@ -42,20 +44,23 @@ ln -sf "$INSTALL_DIR/set-voice.sh" "$link_dir/voice"
 
 # 4. Merge hooks into settings.json (idempotent; backs up only when it actually changes)
 [ -f "$SETTINGS" ] || printf '{}\n' > "$SETTINGS"
-new="$(jq --arg n "$NOTIFY" '
-  def ensure($event; $arg):
+new="$(jq --arg n "$NOTIFY" --arg r "$REMIND" '
+  def ensure($event; $cmd):
     .hooks[$event] = (
       ((((.hooks // {})[$event]) // [])
         | map(select(
-            ([ (.hooks // [])[]?.command // empty ] | map(contains("voice-notify/notify.sh")) | any) | not
+            ([ (.hooks // [])[]?.command // empty ]
+              | map(contains("voice-notify/notify.sh") or contains("voice-notify/remind.sh"))
+              | any) | not
           )))
-      + [ { "hooks": [ { "type": "command", "command": ($n + " " + $arg), "timeout": 15 } ] } ]
+      + [ { "hooks": [ { "type": "command", "command": $cmd, "timeout": 15 } ] } ]
     );
   .hooks = (.hooks // {})
-  | ensure("SessionStart"; "session")
-  | ensure("Notification"; "question")
-  | ensure("Stop"; "auto")
-  | ensure("StopFailure"; "error")
+  | ensure("SessionStart"; $n + " session")
+  | ensure("Notification"; $n + " question")
+  | ensure("Stop"; $n + " auto")
+  | ensure("StopFailure"; $n + " error")
+  | ensure("UserPromptSubmit"; $r + " stop")
 ' "$SETTINGS")"
 
 if [ "$new" != "$(cat "$SETTINGS")" ]; then
@@ -73,6 +78,7 @@ say "  slash command  : $COMMANDS_DIR/voice.md   (/voice)"
 say "  switch command : $link_dir/voice           (voice <id>  /  !voice <id> in Claude Code)"
 say ""
 say "Out of the box it plays macOS system sounds. List / switch voices:  voice"
+say "Escalating reminder (when you don't respond) is ON — toggle with:  voice remind on|off"
 say "Open /hooks once in Claude Code (or restart) so the new hooks load."
 say ""
 say "Optional — add a spoken voice pack:"

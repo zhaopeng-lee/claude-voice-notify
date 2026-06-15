@@ -87,6 +87,25 @@ Inside Claude Code, prefix with `!` to switch **without spending a model turn / 
 There's also a `/voice` slash command, but it runs as a normal turn (costs tokens) — prefer
 `!voice` for quick switches.
 
+## Reminders (nudge until you respond)
+
+When Claude stops and you don't come back, it can **re-nudge you on an escalating schedule**:
+at **60s, 3min, 10min, and 30min**, then it gives up. Each nudge plays the voice's `remind`
+clips in order (clip 1 → 2 → 3 → 4), so the wording escalates instead of repeating. The
+moment you type, it's cancelled (via the `UserPromptSubmit` hook).
+
+It's **on by default**. Toggle it anytime (zero tokens):
+
+```bash
+voice remind          # show status
+voice remind off      # disable (also stops any running reminder)
+voice remind on       # enable
+```
+
+With the `system` voice (or a pack without `remind` clips), the nudge is a plain system ping.
+Add `remind` lines to a voice in `voices.json` (see `voices.example.json`) for spoken nudges.
+Tune the schedule with the `REMIND_DELAYS` env var (e.g. `REMIND_DELAYS="30 60 300 900"`).
+
 ## Add a spoken voice pack (optional)
 
 1. Create your config from the template:
@@ -119,6 +138,8 @@ All behavior lives in `~/.claude/voice-notify/notify.sh` and the hook entries in
 - **Too chatty on every turn?** Remove the `Stop` hook (keep only `Notification` for
   "needs you"), or edit `notify.sh` to stay silent unless the turn used tools.
 - **Don't want a session greeting?** Remove the `SessionStart` hook.
+- **Reminders too naggy?** `voice remind off`, or change the schedule via the
+  `REMIND_DELAYS` env var on the reminder hook.
 - **Change default system sounds:** edit the `sys_sound()` map in `notify.sh`
   (any file in `/System/Library/Sounds/`).
 
@@ -135,7 +156,8 @@ A settings.json backup is written before the hooks are removed.
 
 - `notify.sh <state>` — invoked by each hook; reads `current-voice`, plays a random clip for
   that state (or a system sound), and shows a macOS notification.
-- `set-voice.sh` (a.k.a. `voice`) — writes `current-voice` and plays a sample.
+- `set-voice.sh` (a.k.a. `voice`) — writes `current-voice`, toggles reminders, plays a sample.
+- `remind.sh` — the escalating "still waiting" reminder loop (started on `Stop`, cancelled on input).
 - `generate-sounds.mjs` — turns `voices.json` into mp3 clips via Fish Audio TTS.
 
 ## Roadmap

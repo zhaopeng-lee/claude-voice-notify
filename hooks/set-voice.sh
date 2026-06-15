@@ -1,9 +1,10 @@
 #!/bin/bash
-# claude-voice-notify — switch the active voice pack.
-# Usage: voice [id]
-#   valid id  -> write ./current-voice, play a sample
-#   no/invalid -> list available voices + current selection
-# Available voices = "system" + each subdirectory under ./sounds/.
+# claude-voice-notify — switch the active voice pack, or toggle the reminder.
+# Usage:
+#   voice [id]             switch voice; no/invalid arg -> list available voices
+#   voice remind on|off    enable/disable the escalating "still waiting" reminder
+#                          (voice remind -> show status)
+# Available voices = "system" + each subdirectory under ./sounds/.  ("remind" is reserved.)
 #
 # Tip: inside Claude Code, prefix with ! to run locally with no model turn: !voice <id>
 
@@ -18,6 +19,7 @@ DIR="$(cd "$(dirname "$SOURCE")" && pwd)"
 SOUNDS_ROOT="$DIR/sounds"
 VOICE_FILE="$DIR/current-voice"
 VOICES_JSON="$DIR/voices.json"
+ENABLED_FILE="$DIR/remind-enabled"
 
 friendly() {
   [ "$1" = "system" ] && { echo "macOS system sounds"; return; }
@@ -27,6 +29,22 @@ friendly() {
   fi
   echo "$1"
 }
+
+remind_state() {
+  e="on"; [ -f "$ENABLED_FILE" ] && e=$(tr -d '[:space:]' < "$ENABLED_FILE")
+  [ "$e" = "off" ] && echo "off" || echo "on"
+}
+
+# Sub-command: reminder toggle
+if [ "${1:-}" = "remind" ]; then
+  case "${2:-}" in
+    on)  echo "on" > "$ENABLED_FILE"; echo "Reminders: ON  (replays at 60s / 3min / 10min / 30min until you respond; cancelled when you type)" ;;
+    off) echo "off" > "$ENABLED_FILE"; bash "$DIR/remind.sh" stop 2>/dev/null; echo "Reminders: OFF" ;;
+    ""|status) echo "Reminders: $(remind_state)"; echo "Toggle with: voice remind on | voice remind off" ;;
+    *) echo "Usage: voice remind [on|off]" ;;
+  esac
+  exit 0
+fi
 
 current="system"
 [ -f "$VOICE_FILE" ] && current=$(tr -d '[:space:]' < "$VOICE_FILE")
@@ -58,6 +76,7 @@ if [ "$valid" = 0 ]; then
     done
   fi
   echo
+  echo "Reminders: $(remind_state)   (toggle: voice remind on|off)"
   echo "Usage: voice <id>    e.g.  voice system   (in Claude Code: !voice <id>)"
   exit 0
 fi
@@ -70,7 +89,7 @@ if [ "$want" = "system" ]; then
   afplay /System/Library/Sounds/Glass.aiff >/dev/null 2>&1 &
 else
   sample=""
-  for st in done session question error subagent; do
+  for st in done session question error remind subagent; do
     c=("$SOUNDS_ROOT/$want/$st"/*.mp3)
     if [ -e "${c[0]}" ]; then sample="${c[RANDOM % ${#c[@]}]}"; break; fi
   done

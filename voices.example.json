@@ -19,6 +19,12 @@
       "session": [
         "Session started.",
         "Ready when you are."
+      ],
+      "remind": [
+        "Still there? I'm waiting on you.",
+        "Hey — I still need your input.",
+        "Are you back yet? It has been a while.",
+        "Last call. I'll stop nagging after this one."
       ]
     }
   }
