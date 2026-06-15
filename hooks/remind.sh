@@ -33,7 +33,11 @@ PRESENCE="${REMIND_PRESENCE_IDLE:-30}"
 kill_existing() {
   [ -f "$PIDFILE" ] || return 0
   p=$(cat "$PIDFILE" 2>/dev/null)
-  [ -n "$p" ] && kill "$p" 2>/dev/null
+  # Only kill if that PID really is our reminder loop — guards against a stale
+  # pidfile (e.g. after reboot) whose PID was recycled by an unrelated process.
+  if [ -n "$p" ] && ps -p "$p" -o command= 2>/dev/null | grep -q 'remind\.sh'; then
+    kill "$p" 2>/dev/null
+  fi
   rm -f "$PIDFILE"
 }
 
