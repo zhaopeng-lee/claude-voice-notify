@@ -36,11 +36,11 @@ Prefer to do it yourself? See **Manual install** below.
 
 With a voice pack installed, each event plays a random spoken line in your chosen voice instead.
 
-> **How "done vs asking" is decided:** on `Stop`, the dispatcher reads the transcript and only
-> announces when the turn **genuinely ended** — the last assistant message's `stop_reason` must be
-> `end_turn`. An interrupt (ESC), `/clear`, or `/compact` therefore stays **silent**. It plays the
-> "asking you" sound when that final message ends with a question (`?` / `？`), otherwise "done".
-> This still fires per turn-end, not per "task" — Claude Code has no task-completion hook.
+> **How "done vs asking" is decided:** on `Stop`, the dispatcher reads the transcript's last
+> assistant message — if it ends with a question (`?` / `？`) it plays "asking you", otherwise
+> "done". `Stop` fires once per turn-end ("when Claude finishes responding"), not per "task" —
+> Claude Code has no task-completion hook. Per the docs, `Stop` does **not** fire on interrupt
+> (ESC), `/clear` (→ `SessionEnd`), or `/compact` (→ `PreCompact`/`PostCompact`), so those are silent.
 >
 > We deliberately **don't** hook `Notification`: Claude Code also fires it after ~60s idle, which
 > would nag you even when nothing needs an answer. "Claude is asking you" is covered by `Stop`
