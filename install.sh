@@ -57,7 +57,6 @@ new="$(jq --arg n "$NOTIFY" --arg r "$REMIND" '
     );
   .hooks = (.hooks // {})
   | ensure("SessionStart"; $n + " session")
-  | ensure("Notification"; $n + " question")
   | ensure("Stop"; $n + " auto")
   | ensure("StopFailure"; $n + " error")
   | ensure("UserPromptSubmit"; $r + " stop")

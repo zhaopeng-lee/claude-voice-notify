@@ -54,6 +54,14 @@ fi
 # Stop: decide "done" vs "question" from the last assistant message.
 if [ "$state" = "auto" ]; then
   tp=$(printf '%s' "$input" | jq -r '.transcript_path // ""' 2>/dev/null)
+  # Only announce on a genuine turn end: the last assistant message must have
+  # stop_reason == "end_turn". Interrupt (ESC) / /clear / /compact / unreadable -> stay silent.
+  sr=""
+  if [ -n "$tp" ] && [ -f "$tp" ]; then
+    sr=$(tail -n 400 "$tp" 2>/dev/null | tail -r 2>/dev/null \
+      | jq -rc 'select(.type=="assistant") | .message.stop_reason // empty' 2>/dev/null | grep -m1 .)
+  fi
+  [ "$sr" = "end_turn" ] || exit 0
   last=""
   if [ -n "$tp" ] && [ -f "$tp" ]; then
     # Only scan the tail of the transcript (the final assistant message is at the end).

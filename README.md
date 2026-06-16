@@ -30,17 +30,21 @@ Prefer to do it yourself? See **Manual install** below.
 
 | Event | Claude Code hook | Default sound |
 |-------|------------------|---------------|
-| Claude is waiting for your input / permission | `Notification` | Ping |
-| A turn finished (smart: "done" vs "still asking you") | `Stop` | Glass / Ping |
+| A turn ended — task done, or Claude is asking you (smart) | `Stop` | Glass / Ping |
 | A turn ended in an error | `StopFailure` | Basso |
 | A session started (skips auto-compaction restarts) | `SessionStart` | Hero |
 
 With a voice pack installed, each event plays a random spoken line in your chosen voice instead.
 
-> **Heads up on `Stop`:** Claude Code has no "task completed" event — `Stop` fires at the
-> end of **every** assistant turn. So you'll hear the "done"/"waiting" sound on each reply,
-> not only after big tasks. The dispatcher picks "waiting for you" when the last message ends
-> in a question, otherwise "done". If that's too chatty, see *Tuning* below.
+> **How "done vs asking" is decided:** on `Stop`, the dispatcher reads the transcript and only
+> announces when the turn **genuinely ended** — the last assistant message's `stop_reason` must be
+> `end_turn`. An interrupt (ESC), `/clear`, or `/compact` therefore stays **silent**. It plays the
+> "asking you" sound when that final message ends with a question (`?` / `？`), otherwise "done".
+> This still fires per turn-end, not per "task" — Claude Code has no task-completion hook.
+>
+> We deliberately **don't** hook `Notification`: Claude Code also fires it after ~60s idle, which
+> would nag you even when nothing needs an answer. "Claude is asking you" is covered by `Stop`
+> above (and the escalating reminder below).
 
 ---
 
@@ -155,8 +159,8 @@ responsible for the voice models and text you choose to generate and use.
 All behavior lives in `~/.claude/voice-notify/notify.sh` and the hook entries in
 `~/.claude/settings.json` — edit freely:
 
-- **Too chatty on every turn?** Remove the `Stop` hook (keep only `Notification` for
-  "needs you"), or edit `notify.sh` to stay silent unless the turn used tools.
+- **Too chatty?** `voice off` mutes everything; or remove the `Stop` hook, or edit `notify.sh`
+  to stay silent unless the turn used tools.
 - **Don't want a session greeting?** Remove the `SessionStart` hook.
 - **Reminders too naggy?** `voice remind off`, or change the schedule via the
   `REMIND_DELAYS` env var on the reminder hook.
