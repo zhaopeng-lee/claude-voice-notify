@@ -1,5 +1,7 @@
 # claude-voice-notify
 
+**English** · [中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Tiếng Việt](README.vi.md)
+
 Spoken / sound notifications for [Claude Code](https://claude.com/claude-code) on **macOS**.
 Plays a sound when Claude needs your input, finishes a turn, hits an error, or a session
 starts — using built-in macOS system sounds out of the box, or your own AI-generated
