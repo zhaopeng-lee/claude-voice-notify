@@ -32,21 +32,19 @@ Prefer to do it yourself? See **Manual install** below.
 
 | Event | Claude Code hook | Default sound |
 |-------|------------------|---------------|
-| A turn ended — task done, or Claude is asking you (smart) | `Stop` | Glass / Ping |
+| Claude finished a turn | `Stop` | Glass |
+| Claude is idle, waiting for you | `Notification` (matcher `idle_prompt`) | Ping |
 | A turn ended in an error | `StopFailure` | Basso |
 | A session started (skips auto-compaction restarts) | `SessionStart` | Hero |
 
 With a voice pack installed, each event plays a random spoken line in your chosen voice instead.
 
-> **How "done vs asking" is decided:** on `Stop`, the dispatcher reads the transcript's last
-> assistant message — if it ends with a question (`?` / `？`) it plays "asking you", otherwise
-> "done". `Stop` fires once per turn-end ("when Claude finishes responding"), not per "task" —
-> Claude Code has no task-completion hook. Per the docs, `Stop` does **not** fire on interrupt
-> (ESC), `/clear` (→ `SessionEnd`), or `/compact` (→ `PreCompact`/`PostCompact`), so those are silent.
->
-> We deliberately **don't** hook `Notification`: Claude Code also fires it after ~60s idle, which
-> would nag you even when nothing needs an answer. "Claude is asking you" is covered by `Stop`
-> above (and the escalating reminder below).
+> **"Done" vs "waiting for you" come from two different official hooks — no text guessing.**
+> `Stop` fires when Claude finishes a turn → "done". `Notification` with matcher `idle_prompt`
+> fires when Claude is idle / waiting for your input → "waiting for you" (and starts the escalating
+> reminder). `idle_prompt` only fires when you're actually idle, so if you reply promptly you won't
+> hear it. `Stop` is per turn-end, not per "task" (Claude Code has no task-completion hook), and per
+> the docs does **not** fire on interrupt (ESC), `/clear`, or `/compact`.
 
 ---
 
@@ -95,11 +93,11 @@ There's also a `/voice` slash command, but it runs as a normal turn (costs token
 
 ## Reminders (nudge until you reply)
 
-**Only when Claude is actually waiting on you.** If Claude's final message ends with a question
-(`?` / `？`), the turn is treated as "awaiting your reply" and the reminder kicks in. If the turn
-just finished a task (no reply needed), it chimes once and stays quiet — no nagging. While
-awaiting you, it re-nudges on an escalating schedule — **60s, 3min, 10min, 30min** — then gives
-up. Each nudge plays the voice's `remind` clips in order (1 → 2 → 3 → 4), so the wording escalates.
+The reminder starts when Claude is **waiting for your input** — detected via the official
+`Notification` `idle_prompt` hook, so it catches every kind of "awaiting you" (not just messages
+ending in `?`). While you stay away it re-nudges on an escalating schedule — **60s, 3min, 10min,
+30min** — then gives up. Each nudge plays the voice's `remind` clips in order (1 → 2 → 3 → 4),
+so the wording escalates.
 
 It stops the moment you reply (the `UserPromptSubmit` hook) or a new session starts.
 
@@ -183,7 +181,7 @@ A settings.json backup is written before the hooks are removed.
 - `notify.sh <state>` — invoked by each hook; reads `current-voice`, plays a random clip for
   that state (or a system sound), and shows a macOS notification.
 - `set-voice.sh` (a.k.a. `voice`) — writes `current-voice`, toggles reminders, plays a sample.
-- `remind.sh` — the escalating "still waiting" reminder loop (started on `Stop`, cancelled on input).
+- `remind.sh` — the escalating "still waiting" reminder loop (started when Claude is idle/waiting, cancelled on input).
 - `generate-sounds.mjs` — turns `voices.json` into mp3 clips via Fish Audio TTS.
 
 ## Roadmap

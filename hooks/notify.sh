@@ -51,24 +51,8 @@ if [ "$state" = "session" ]; then
   [ "$src" = "compact" ] && exit 0
 fi
 
-# Stop: decide "done" vs "question" from the last assistant message.
-if [ "$state" = "auto" ]; then
-  tp=$(printf '%s' "$input" | jq -r '.transcript_path // ""' 2>/dev/null)
-  last=""
-  if [ -n "$tp" ] && [ -f "$tp" ]; then
-    # Only scan the tail of the transcript (the final assistant message is at the end).
-    # join text blocks + collapse whitespace so a multi-line message stays one line.
-    last=$(tail -n 400 "$tp" 2>/dev/null | tail -r 2>/dev/null \
-      | jq -rc 'select(.type=="assistant") | [.message.content[]? | select(.type=="text") | .text] | join(" ") | gsub("\\s+";" ")' 2>/dev/null \
-      | grep -m1 .)
-  fi
-  # Question only if the final message (trailing whitespace stripped) ends with ? / ？
-  last_trim="${last%"${last##*[![:space:]]}"}"
-  case "$last_trim" in
-    *'?'|*'？') state="question" ;;
-    *)          state="done" ;;
-  esac
-fi
+# Stop now means "done"; "waiting for you" comes from the official Notification(idle_prompt) hook.
+[ "$state" = "auto" ] && state="done"
 
 # Notification text. Subtitle = the voice's display name (from voices.json) when available,
 # so the popup is themed per voice. Edit the titles here for fully custom per-voice wording.
@@ -108,11 +92,11 @@ else
   osascript -e "display notification \"$MSG\" with title \"$TITLE\" subtitle \"$SUBTITLE\"" >/dev/null 2>&1
 fi
 
-# Escalating reminder: only when Claude is awaiting your reply (a question turn).
+# Escalating reminder: starts when Claude is idle/waiting for you (Notification idle_prompt -> orig=question).
 # Task-complete turns and new sessions clear any pending reminder instead.
-if [ "$orig" = "auto" ] && [ "$state" = "question" ]; then
+if [ "$orig" = "question" ]; then
   bash "$DIR/remind.sh" start </dev/null >/dev/null 2>&1
-elif [ "$orig" = "auto" ] || [ "$orig" = "session" ]; then
+elif [ "$orig" = "session" ]; then
   bash "$DIR/remind.sh" stop </dev/null >/dev/null 2>&1
 fi
 exit 0

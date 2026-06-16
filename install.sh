@@ -45,21 +45,22 @@ ln -sf "$INSTALL_DIR/set-voice.sh" "$link_dir/voice"
 # 4. Merge hooks into settings.json (idempotent; backs up only when it actually changes)
 [ -f "$SETTINGS" ] || printf '{}\n' > "$SETTINGS"
 new="$(jq --arg n "$NOTIFY" --arg r "$REMIND" '
+  def keep: map(select(
+      ([ (.hooks // [])[]?.command // empty ]
+        | map(contains("voice-notify/notify.sh") or contains("voice-notify/remind.sh"))
+        | any) | not));
   def ensure($event; $cmd):
-    .hooks[$event] = (
-      ((((.hooks // {})[$event]) // [])
-        | map(select(
-            ([ (.hooks // [])[]?.command // empty ]
-              | map(contains("voice-notify/notify.sh") or contains("voice-notify/remind.sh"))
-              | any) | not
-          )))
-      + [ { "hooks": [ { "type": "command", "command": $cmd, "timeout": 15 } ] } ]
-    );
+    .hooks[$event] = ((((.hooks // {})[$event]) // []) | keep)
+      + [ { "hooks": [ { "type": "command", "command": $cmd, "timeout": 15 } ] } ];
+  def ensure_m($event; $matcher; $cmd):
+    .hooks[$event] = ((((.hooks // {})[$event]) // []) | keep)
+      + [ { "matcher": $matcher, "hooks": [ { "type": "command", "command": $cmd, "timeout": 15 } ] } ];
   .hooks = (.hooks // {})
   | ensure("SessionStart"; $n + " session")
-  | ensure("Stop"; $n + " auto")
+  | ensure("Stop"; $n + " done")
   | ensure("StopFailure"; $n + " error")
   | ensure("UserPromptSubmit"; $r + " stop")
+  | ensure_m("Notification"; "idle_prompt"; $n + " question")
 ' "$SETTINGS")"
 
 if [ "$new" != "$(cat "$SETTINGS")" ]; then
